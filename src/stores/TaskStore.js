@@ -1,16 +1,16 @@
-import { defineStore } from "pinia";
+import {defineStore} from "pinia";
+import axios from "axios";
+import {useToast} from 'vue-toast-notification';
+import 'vue-toast-notification/dist/theme-sugar.css';
+const $toast = useToast();
 
 export const useTasks = defineStore('tasks', {
     state: () => {
         return {
-            tasks: [
-                { id: 1, name: 'Task 1', done: false },
-                { id: 2, name: 'Task 2', done: true },
-                { id: 3, name: 'Task 3', done: false },
-                { id: 4, name: 'Task 4', done: true },
-                { id: 5, name: 'Task 5', done: false },
-            ],
-            sortable: "all"
+            tasks: [],
+            sortable: "all",
+            loading: false,
+            errors: []
         }
     },
 
@@ -45,17 +45,55 @@ export const useTasks = defineStore('tasks', {
     },
 
     actions: {
-        addTask(task) {
-            this.tasks.push(task)
+        clearErrors() {
+            this.errors = []
         },
 
-        deleteTask(id) {
-            this.tasks = this.tasks.filter(task => task.id !== id)
+        async getTasks() {
+            try {
+                this.loading = true;
+                // await axios.get('/sanctum/csrf-cookie');
+                let response = await axios.get('/api/tasks')
+                this.tasks = response.data
+                this.loading = false;
+            } catch (e) {
+                // erros
+            }
         },
 
-        handleToggle(id) {
-            const task = this.tasks.find(task => task.id === id)
-            task.done = !task.done
+        async addTask(task) {
+            try {
+                let respones = await axios.post('/api/tasks', task)
+                this.tasks.push(respones.data)
+                $toast.success('Successfully added!')
+            } catch (e) {
+                if (e.response.status === 422) {
+                    this.errors = e.response.data.errors
+                    $toast.error('Please fill in all fields!')
+                }
+            }
+        },
+
+        async deleteTask(id) {
+            try {
+                await axios.delete(`/api/tasks/${id}`)
+                this.tasks = this.tasks.filter(task => task.id !== id)
+                $toast.success('Successfully deleted!')
+            } catch (e) {
+                // show errors
+            }
+        },
+
+        async handleToggle(id) {
+
+            try {
+                await axios.patch(`/api/tasks/${id}`)
+                const task = this.tasks.find(task => task.id === id)
+                task.done = !task.done
+                $toast.success('Successfully updated!')
+            } catch (e) {
+                // erros show
+            }
         }
     }
 });
